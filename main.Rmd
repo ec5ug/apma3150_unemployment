@@ -1,0 +1,85 @@
+---
+title: "Final Project---Unemployment During Presidential Terms"
+author: "Chang, Emily' Davis, Alexander; Henry, Colin"
+date: 'Due: Wed Dec 4 | 11:59pm'
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+**APMA 3150 \| Fall 2024 \| University of Virginia**
+
+***"On my honor, I pledge that I have neither given nor received unauthorized aid on this assignment." - Emily Chang.***
+
+```{r}
+library(dplyr)
+```
+
+# Preprocessing
+```{r}
+natl_unemploy <- read.csv('data/national_unemployment_rate.csv')
+presidents <- read.csv('data/presidents.csv')
+
+natl_unemploy$DATE <- as.Date(natl_unemploy$DATE)
+
+presidents$Party <- trimws(presidents$Party)
+presidents$Party <- as.factor(presidents$Party)
+presidents$Took.office <- as.Date(presidents$Took.office, format = "%d/%m/%Y")
+presidents$Left.office <- c(presidents$Took.office[-1] - 1, as.Date('9999-12-31'))
+
+natl_unemploy_pres <- natl_unemploy %>%
+  left_join(presidents, by = character()) %>%
+  filter(DATE >= Took.office & DATE <= Left.office)
+
+natl_unemploy_pres <- natl_unemploy_pres %>%
+  select(DATE, UNRATE, President, Party)
+head(natl_unemploy_pres)
+```
+
+# Test for Normality
+This data is not normally distributed
+```{r}
+hist(natl_unemploy_pres$UNRATE, main="Histogram of Unemployment Rates", xlab="Unemployment Rate", col="lightblue", border="black")
+qqnorm(natl_unemploy_pres$UNRATE, main="Q-Q Plot of Unemployment Rate", 
+       xlab="Theoretical Quantiles", ylab="Sample Quantiles")
+qqline(natl_unemploy_pres$UNRATE, col = "red")
+```
+
+# Testing for Statistical Significance Between Political Parties
+## Two-tailed
+In this case:
+
+* $H_0$:  The null hypothesis is that the median of the population of differences between the paired data is zero.
+* #H_A$: The alternative hypothesis is that it is not.
+
+Under this hypothesis test, we can reject the null hypothesis at the 95% confidence level. 
+```{r}
+wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='two.sided')
+```
+
+## One-tailed
+### alternative=greater
+In this case:
+
+* $H_0$:  The null hypothesis is that the median of the population of differences between the paired data is zero.
+* $H_A$: The alternative hypothesis is that the median of the Democratic population is greater than that of the Republicans.
+
+Under this hypotbesis test, we fail to reject the null hypothesis at the 95% confidence level.
+```{r}
+wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='greater')
+```
+### alternative=less
+In this case:
+
+* $H_0$:  The null hypothesis is that the median of the population of differences between the paired data is zero.
+* $H_A$: The alternative hypothesis is that the median of the Democratic population is less than that of the Republicans.
+
+Ybder this hypothesis test, we can reject the null hypothesis at the 95% confidence level.
+```{r}
+wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='less')
+```
