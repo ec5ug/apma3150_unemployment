@@ -39,10 +39,11 @@ natl_unemploy_pres <- natl_unemploy %>%
 natl_unemploy_pres <- natl_unemploy_pres %>%
   select(DATE, UNRATE, President, Party)
 head(natl_unemploy_pres)
+natl_unemploy_pres$Party <- factor(natl_unemploy_pres$Party, levels = c("Democratic", "Republican"))
 ```
 
 # Test for Normality
-This data is not normally distributed
+This data is somewhat normally distributed
 ```{r}
 hist(natl_unemploy_pres$UNRATE, main="Histogram of Unemployment Rates", xlab="Unemployment Rate", col="lightblue", border="black")
 qqnorm(natl_unemploy_pres$UNRATE, main="Q-Q Plot of Unemployment Rate", 
@@ -51,35 +52,56 @@ qqline(natl_unemploy_pres$UNRATE, col = "red")
 ```
 
 # Testing for Statistical Significance Between Political Parties
-## Two-tailed
+## Wilcoxon
+### Two-tailed
 In this case:
 
-* $H_0$:  The null hypothesis is that the median of the population of differences between the paired data is zero.
-* #H_A$: The alternative hypothesis is that it is not.
+* $H_0$:  The null hypothesis is that the mean of the population of differences between the paired data is zero.
+* $H_A$: The alternative hypothesis is that it is not.
+```{r}
+dem_rows <- subset(natl_unemploy_pres, Party == "Democratic")
+dem_unemploy_avg <- mean(dem_rows$UNRATE)
+paste("Average unemployment rate during a Democratic presidential term:", dem_unemploy_avg)
 
-Under this hypothesis test, we can reject the null hypothesis at the 95% confidence level. 
+rep_rows <- subset(natl_unemploy_pres, Party == "Republican")
+rep_unemploy_avg <- mean(rep_rows$UNRATE)
+paste("Average unemployment rate during a Republican presidential term:", rep_unemploy_avg)
+```
+Under this hypothesis test, we can reject the null hypothesis at the 95% confidence level.
+$H_0$: the mean unemployment rates of the Democratic and Republican presidential terms do not differ significantly.
+$H_A$: the mean unemployment rate of the Democratic and Republican presidential term differ significantly.
 ```{r}
 wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='two.sided')
 ```
 
-## One-tailed
-### alternative=greater
+### One-tailed
+#### alternative=greater
 In this case:
 
-* $H_0$:  The null hypothesis is that the median of the population of differences between the paired data is zero.
-* $H_A$: The alternative hypothesis is that the median of the Democratic population is greater than that of the Republicans.
+* $H_0$:  The null hypothesis is that the mean of the population of differences between the paired data is zero.
+* $H_A$: The alternative hypothesis is that the mean of the Democratic population is greater than that of the Republicans.
 
 Under this hypotbesis test, we fail to reject the null hypothesis at the 95% confidence level.
 ```{r}
 wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='greater')
 ```
-### alternative=less
+#### alternative=less
 In this case:
 
-* $H_0$:  The null hypothesis is that the median of the population of differences between the paired data is zero.
-* $H_A$: The alternative hypothesis is that the median of the Democratic population is less than that of the Republicans.
+* $H_0$:  The null hypothesis is that the mean of the population of differences between the paired data is zero.
+* $H_A$: The alternative hypothesis is that the mean of the Democratic population is less than that of the Republicans.
 
 Ybder this hypothesis test, we can reject the null hypothesis at the 95% confidence level.
 ```{r}
 wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='less')
+```
+
+## ANOVA
+
+* $H_0: \mu_{Democratic} = \mu_{Republican}$
+* $H_A: \mu_{Democratic} \neq \mu_{Republican}$
+
+```{r}
+anova_result <- aov(UNRATE ~ Party, data = natl_unemploy_pres)
+summary(anova_result)
 ```
