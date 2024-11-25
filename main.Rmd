@@ -18,9 +18,11 @@ editor_options:
 
 ```{r}
 library(dplyr)
+library(ggplot2)
 ```
 
-# Preprocessing
+# Part 1
+## Preprocessing
 ```{r}
 natl_unemploy <- read.csv('data/national_unemployment_rate.csv')
 presidents <- read.csv('data/presidents.csv')
@@ -42,7 +44,7 @@ head(natl_unemploy_pres)
 natl_unemploy_pres$Party <- factor(natl_unemploy_pres$Party, levels = c("Democratic", "Republican"))
 ```
 
-# Test for Normality
+## Test for Normality
 This data is somewhat normally distributed
 ```{r}
 hist(natl_unemploy_pres$UNRATE, main="Histogram of Unemployment Rates", xlab="Unemployment Rate", col="lightblue", border="black")
@@ -51,9 +53,9 @@ qqnorm(natl_unemploy_pres$UNRATE, main="Q-Q Plot of Unemployment Rate",
 qqline(natl_unemploy_pres$UNRATE, col = "red")
 ```
 
-# Testing for Statistical Significance Between Political Parties
-## Wilcoxon
-### Two-tailed
+## Testing for Statistical Significance Between Political Parties
+### Wilcoxon
+#### Two-tailed
 In this case:
 
 * $H_0$:  The null hypothesis is that the mean of the population of differences between the paired data is zero.
@@ -74,8 +76,8 @@ $H_A$: the mean unemployment rate of the Democratic and Republican presidential 
 wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='two.sided')
 ```
 
-### One-tailed
-#### alternative=greater
+#### One-tailed
+##### alternative=greater
 In this case:
 
 * $H_0$:  The null hypothesis is that the mean of the population of differences between the paired data is zero.
@@ -85,7 +87,7 @@ Under this hypotbesis test, we fail to reject the null hypothesis at the 95% con
 ```{r}
 wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='greater')
 ```
-#### alternative=less
+##### alternative=less
 In this case:
 
 * $H_0$:  The null hypothesis is that the mean of the population of differences between the paired data is zero.
@@ -96,7 +98,7 @@ Ybder this hypothesis test, we can reject the null hypothesis at the 95% confide
 wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='less')
 ```
 
-## ANOVA
+### ANOVA
 
 * $H_0: \mu_{Democratic} = \mu_{Republican}$
 * $H_A: \mu_{Democratic} \neq \mu_{Republican}$
@@ -104,4 +106,81 @@ wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='less')
 ```{r}
 anova_result <- aov(UNRATE ~ Party, data = natl_unemploy_pres)
 summary(anova_result)
+```
+# Part 2
+## Preprocessing
+```{r}
+term_avg_unemploy <- natl_unemploy_pres %>%
+  group_by(President) %>%
+  summarise(
+    AvgUnrate = mean(UNRATE, na.rm = TRUE),
+    Start = min(DATE),
+    End = max(DATE)
+  ) %>%
+  arrange(Start)
+
+print(term_avg_unemploy)
+```
+
+## Test for Normality
+```{r}
+shapiro_test <- shapiro.test(term_avg_unemploy$AvgUnrate)
+print(shapiro_test)
+
+hist(term_avg_unemploy$AvgUnrate, main = "Histogram of Term-Average Unemployment Rates",
+     xlab = "Average Unemployment Rate", col = "lightblue", border = "black")
+qqnorm(term_avg_unemploy$AvgUnrate)
+qqline(term_avg_unemploy$AvgUnrate, col = "red")
+```
+
+## Testing for Statistical Significance Between One Presidential Term to Another
+### T-Test
+* $H_0: \mu_1 = \mu_2$ (where $\mu_1$ is the average unemployment rate for the first president, and $\mu_2$ is the average unemployment rate for the second president)
+* $H_A: \mu_1 \neq \mu_2$
+```{r}
+for (i in 1:(nrow(term_avg_unemploy) - 1)) {
+  term1 <- term_avg_unemploy$AvgUnrate[i]
+  term2 <- term_avg_unemploy$AvgUnrate[i + 1]
+  
+  president1 <- term_avg_unemploy$President[i]
+  president2 <- term_avg_unemploy$President[i + 1]
+  
+  t_test <- t.test(c(term1, term2), paired = FALSE)
+  cat("\nComparison:", president1, "vs", president2, "\n")
+  print(t_test)
+}
+```
+* Truman vs Eisenhower ($t=13.288$, $p=0.04782$)
+  * We reject the null hypothesis at the 95% CI, meaning that the unemployment rates during Truman and Eisenhower's terms differ significantly
+* Eisenhower vs Kennedy ($t=10.57$, $p=0.06005$)
+  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Eisenhower's and Kennedy's terms
+* Kennedy vs Johnson ($t=5.6944$, $p=0.1107$)
+  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Kennedy's and Johnson's terms
+* Johnson vs Nixon ($t=10.812$, $p=0.05872$)
+  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Johnson's and Nixon's terms
+* Nixon vs Ford ($t=4.5884$, $p=0.1366$)
+  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Nixon's and Ford's terms
+* Ford vs Carter ($t=11.035$, $p=0.05753$)
+  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Ford's and Carter's terms
+* Carter vs Reagan ($t=14.349$, $p=0.0443$)
+  * We reject the null hypothesis at the 95% CI, meaning that the unemployment rates during Carter and Reagan's terms differ significantly
+* Reagan vs H. W. Bush ($t=11.836$, $p=0.05366$)
+  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Reagan's and H. W. Bush's terms
+* H. W. Bush vs Clinton ($t=9.8267$, $p=0.06456$)
+  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during H. W. Bush's and Clinton's terms
+* Clinton vs W. Bush ($t=76.802$, $p=0.008289$)
+  * We reject the null hypothesis at the 95% CI, meaning that the unemployment rates during Clinton and W. Bush's terms differ significantly
+* W. Bush vs Obama ($t=15.828$, $p=0.04017$)
+  * We reject the null hypothesis at the 95% CI, meaning that the unemployment rates during W. Bush and Obama's terms differ significantly
+
+## Trend of Unemployment Rates Across Presidential Terms
+```{r}
+ggplot(term_avg_unemploy, aes(x = Start, y = AvgUnrate)) +
+  geom_line(group = 1, color = "blue") +
+  geom_point(size = 3, color = "red") +
+  labs(
+    title = "Trend of Unemployment Rates Across Presidential Terms",
+    x = "Start Date of Term",
+    y = "Average Unemployment Rate"
+  )
 ```
