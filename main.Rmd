@@ -32,7 +32,7 @@ natl_unemploy$DATE <- as.Date(natl_unemploy$DATE)
 presidents$Party <- trimws(presidents$Party)
 presidents$Party <- as.factor(presidents$Party)
 presidents$Took.office <- as.Date(presidents$Took.office, format = "%d/%m/%Y")
-presidents$Left.office <- c(presidents$Took.office[-1] - 1, as.Date('9999-12-31'))
+presidents$Left.office <- c(presidents$Took.office[-1] - 1, as.Date('2017-01-20'))
 
 natl_unemploy_pres <- natl_unemploy %>%
   left_join(presidents, by = character()) %>%
@@ -93,7 +93,7 @@ In this case:
 * $H_0$:  The null hypothesis is that the mean of the population of differences between the paired data is zero.
 * $H_A$: The alternative hypothesis is that the mean of the Democratic population is less than that of the Republicans.
 
-Ybder this hypothesis test, we can reject the null hypothesis at the 95% confidence level.
+Under this hypothesis test, we can reject the null hypothesis at the 95% confidence level.
 ```{r}
 wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='less')
 ```
@@ -107,80 +107,142 @@ wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='less')
 anova_result <- aov(UNRATE ~ Party, data = natl_unemploy_pres)
 summary(anova_result)
 ```
+Because the p-value is less than 0.05, we can reject the null hypothesis at the 95% confidence level.
+
 # Part 2
 ## Preprocessing
 ```{r}
-term_avg_unemploy <- natl_unemploy_pres %>%
+num_of_data_points_per_president <- natl_unemploy_pres %>%
+  group_by(President) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+num_of_data_points_per_president
+```
+
+The number of data points for each presidential term ranges from 29 to 189. Because there does not exist a presidential term with a large amount of data points, we use the t-test to test for statistical significance between one one presidential term and another.
+
+## T-Test
+* $H_0: \mu_1 = \mu_2$ (where $\mu_1$ is the average monthly unemployment rate for the first president, and $\mu_2$ is the average monthly unemployment rate for the second president)
+* $H_A: \mu_1 \neq \mu_2$
+```{r}
+pres_data <- natl_unemploy_pres %>%
   group_by(President) %>%
   summarise(
-    AvgUnrate = mean(UNRATE, na.rm = TRUE),
     Start = min(DATE),
-    End = max(DATE)
+    UnemploymentRates = list(UNRATE)
   ) %>%
   arrange(Start)
 
-print(term_avg_unemploy)
-```
-
-## Test for Normality
-```{r}
-shapiro_test <- shapiro.test(term_avg_unemploy$AvgUnrate)
-print(shapiro_test)
-
-hist(term_avg_unemploy$AvgUnrate, main = "Histogram of Term-Average Unemployment Rates",
-     xlab = "Average Unemployment Rate", col = "lightblue", border = "black")
-qqnorm(term_avg_unemploy$AvgUnrate)
-qqline(term_avg_unemploy$AvgUnrate, col = "red")
-```
-
-## Testing for Statistical Significance Between One Presidential Term to Another
-### T-Test
-* $H_0: \mu_1 = \mu_2$ (where $\mu_1$ is the average unemployment rate for the first president, and $\mu_2$ is the average unemployment rate for the second president)
-* $H_A: \mu_1 \neq \mu_2$
-```{r}
-for (i in 1:(nrow(term_avg_unemploy) - 1)) {
-  term1 <- term_avg_unemploy$AvgUnrate[i]
-  term2 <- term_avg_unemploy$AvgUnrate[i + 1]
+for (i in 1:(nrow(pres_data) - 1)) {
+  president1 <- pres_data$President[i]
+  president2 <- pres_data$President[i + 1]
   
-  president1 <- term_avg_unemploy$President[i]
-  president2 <- term_avg_unemploy$President[i + 1]
+  term1_data <- unlist(pres_data$UnemploymentRates[i])
+  term2_data <- unlist(pres_data$UnemploymentRates[i + 1])
+  mean_term1 <- mean(term1_data)
+  mean_term2 <- mean(term2_data)
   
-  t_test <- t.test(c(term1, term2), paired = FALSE)
   cat("\nComparison:", president1, "vs", president2, "\n")
-  print(t_test)
+  cat("Sample mean of", president1, ":", mean_term1, "\n")
+  cat("Sample mean of", president2, ":", mean_term2, "\n")
+  cat("Two-tailed t-test:\n")
+  print(t.test(term1_data, term2_data, paired = FALSE))
+  cat("One-tailed t-test (less):\n")
+  print(t.test(term1_data, term2_data, paired = FALSE, alternative = "less"))
+  cat("One-tailed t-test (greater):\n")
+  print(t.test(term1_data, term2_data, paired = FALSE, alternative = "greater"))
+  cat("------------------------------------------------------------------------")
 }
 ```
-* Truman vs Eisenhower ($t=13.288$, $p=0.04782$)
-  * We reject the null hypothesis at the 95% CI, meaning that the unemployment rates during Truman and Eisenhower's terms differ significantly
-* Eisenhower vs Kennedy ($t=10.57$, $p=0.06005$)
-  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Eisenhower's and Kennedy's terms
-* Kennedy vs Johnson ($t=5.6944$, $p=0.1107$)
-  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Kennedy's and Johnson's terms
-* Johnson vs Nixon ($t=10.812$, $p=0.05872$)
-  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Johnson's and Nixon's terms
-* Nixon vs Ford ($t=4.5884$, $p=0.1366$)
-  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Nixon's and Ford's terms
-* Ford vs Carter ($t=11.035$, $p=0.05753$)
-  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Ford's and Carter's terms
-* Carter vs Reagan ($t=14.349$, $p=0.0443$)
-  * We reject the null hypothesis at the 95% CI, meaning that the unemployment rates during Carter and Reagan's terms differ significantly
-* Reagan vs H. W. Bush ($t=11.836$, $p=0.05366$)
-  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during Reagan's and H. W. Bush's terms
-* H. W. Bush vs Clinton ($t=9.8267$, $p=0.06456$)
-  * We fail to reject the null hypothesis at the 95% CI, meaning there is no significant difference between the unemployment rates during H. W. Bush's and Clinton's terms
-* Clinton vs W. Bush ($t=76.802$, $p=0.008289$)
-  * We reject the null hypothesis at the 95% CI, meaning that the unemployment rates during Clinton and W. Bush's terms differ significantly
-* W. Bush vs Obama ($t=15.828$, $p=0.04017$)
-  * We reject the null hypothesis at the 95% CI, meaning that the unemployment rates during W. Bush and Obama's terms differ significantly
+* Harry S. Truman VS Dwight D. Eisenhower
+  * The sample average monthly unemployment rate of Truman is lower than that of Eisenhower.
+  * The two-tailed t-test resulted in a p-value of 0.001303.
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Truman} < \mu_{Eisenhower}$ results in a p-values of 0.0006515.
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Truman and Eisenhower presidential terms.
+  * There is also evidence that Truman's monthly average unemployment rates were lower than that of Eisenhower's.
+  
+* Dwight D. Eisenhower VS John F. Kennedy
+  * The sample average monthly unemployment rate of Eisenhower is lower than that of Kennedy.
+  * The two-tailed t-test resulted in a p-value of 1.369e-09
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Eisenhower} < \mu_{Kennedy}$ results in a p-values of 6.845e-10.
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Eisenhower and Kennedy presidential terms.
+  * There is also evidence that Kennedy's monthly average unemployment rates were greater than that of Eisenhower's.
+  
+* John F. Kennedy VS Lyndon B. Johnson
+  * The sample average monthly unemployment rate of Kennedy is greater than that of Johnson
+  * The two-tailed t-test resulted in a p-value of 2.2e-16
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Kennedy} > \mu_{Johnson}$ results in a p-values of 2.2e-16.
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Kennedy and Johnson presidential terms.
+  * There is also evidence that Kennedy's monthly average unemployment rates were greater than that of Johnson's.
+
+* Lyndon B. Johnson VS Richard Nixon
+  * The sample average monthly unemployment rate of Johnson is lower than that of Nixon
+  * The two-tailed t-test resulted in a p-value of 1.733e-09
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Johnson} < \mu_{Nixon}$ results in a p-values of 8.666e-10.
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Johnson and Nixon presidential terms.
+  * There is also evidence that Nixon's monthly average unemployment rates were greater than that of Johnson's.
+  
+* Richard Nixon VS Gerald Ford
+  * The sample average monthly unemployment rate of Nixon is lower than that of Ford
+  * The two-tailed t-test resulted in a p-value of 2.2e-16
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Nixon} < \mu_{Ford}$ results in a p-values of 2.2e-16.
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Nixon and Ford presidential terms.
+  * There is also evidence that Nixon's monthly average unemployment rates were less than that of Johnson's.
+  
+* Gerald Ford VS Jimmy Carter
+  * The sample average monthly unemployment rate of Ford is greater than that of Carter
+  * The two-tailed t-test resulted in a p-value of 2.687e-10
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Ford} > \mu_{Carter}$ results in a p-values of 1.343e-10.
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Ford and Carter presidential terms.
+  * There is also evidence that Ford's monthly average unemployment rates were greater than that of Carter's.
+  
+* Jimmy Carter VS Ronald Reagan
+  * The sample average monthly unemployment rate of Carter is less than that of Reagan
+  * The two-tailed t-test resulted in a p-value of 2.223e-07
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Carter} < \mu_{Reagan}$ results in a p-values of 1.112e-07.
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Carter and Reagan presidential terms.
+  * There is also evidence that Carter's monthly average unemployment rates were less than that of Reagan's.
+  
+* Ronald Reagan VS George H. W. Bush
+  * The sample average monthly unemployment rate of Reagan is greater than that of Bush
+  * The two-tailed t-test resulted in a p-value of 5.356e-08
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Reagan} > \mu_{Bush}$ results in a p-values of 2.678e-08.
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Reagan and Bush presidential terms.
+  * There is also evidence that Reagan's monthly average unemployment rates were greater than that of Bush's.
+  
+* George H. W. Bush VS Bill Clinton
+  * The sample average monthly unemployment rate of Bush is greater than that of Clinton
+  * The two-tailed t-test resulted in a p-value of 3.293e-10
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Bush} > \mu_{Clinton}$ results in a p-values of 1.646e-10.
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Bush and Clinton presidential terms.
+  * There is also evidence that Bush's monthly average unemployment rates were greater than that of Clinton's.
+  
+* Bill Clinton VS George W. BUsh
+  * The sample average monthly unemployment rate of Bush is greater than that of Clinton
+  * The two-tailed t-test resulted in a p-value of 0.2505
+  * There does not exist enough evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Bush and Clinton presidential terms.
+
+* George W. Bush VS Barack Obama
+  * The sample average monthly unemployment rate of Bush is less than that of Obama
+  * The two-tailed t-test resulted in a p-value of 2.2e-16
+  * A one-tailed t-test where the alternative hypothesis is $\mu_{Bush} < \mu_{Obama}$ results in a p-values of 
+  * There exists evidence to reject the null hypothesis which states that there is no statistically significant difference between the average monthly unemployment rates between the Bush and Obama presidential terms.
+  * There is also evidence that Bush's monthly average unemployment rates were less than that of Obama's.
 
 ## Trend of Unemployment Rates Across Presidential Terms
 ```{r}
-ggplot(term_avg_unemploy, aes(x = Start, y = AvgUnrate)) +
-  geom_line(group = 1, color = "blue") +
-  geom_point(size = 3, color = "red") +
-  labs(
-    title = "Trend of Unemployment Rates Across Presidential Terms",
-    x = "Start Date of Term",
-    y = "Average Unemployment Rate"
-  )
+plot_data <- natl_unemploy_pres %>%
+  mutate(President = factor(President, levels = unique(pres_data$President)))
+
+ggplot(plot_data, aes(x = DATE, y = UNRATE, color = President)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Unemployment Rates by President",
+       x = "Year",
+       y = "Unemployment Rate (%)",
+       color = "President") +
+  theme_minimal() +
+  theme(legend.position = "right")
 ```
+
+# Part 3
