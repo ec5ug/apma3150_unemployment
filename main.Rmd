@@ -52,9 +52,34 @@ qqnorm(natl_unemploy_pres$UNRATE, main="Q-Q Plot of Unemployment Rate",
        xlab="Theoretical Quantiles", ylab="Sample Quantiles")
 qqline(natl_unemploy_pres$UNRATE, col = "red")
 ```
+```{r}
+shapiro.test(natl_unemploy_pres$UNRATE)
+```
+This data is not normally-distributed as the p-value from the Shapiro-Wilks test is very low.
 
 ## Testing for Statistical Significance Between Political Parties
 ### Wilcoxon
+
+```{r}
+median_values <- natl_unemploy_pres %>%
+  group_by(Party) %>%
+  summarise(Median = median(UNRATE, na.rm = TRUE))
+
+ggplot(natl_unemploy_pres, aes(x = UNRATE, color = Party)) +
+  geom_density(size = 1) +
+  geom_vline(data = median_values, aes(xintercept = Median, color = Party), 
+             linetype = "dashed", size = 1.2) +
+  labs(title = "Density Plot of Unemployment Rates by Party",
+       x = "Unemployment Rate (%)", y = "Density") +
+  scale_color_manual(values = c("blue", "red")) +
+  theme(
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14)
+  )
+```
+
 #### Two-tailed
 In this case:
 
@@ -70,8 +95,8 @@ rep_unemploy_avg <- mean(rep_rows$UNRATE)
 paste("Average unemployment rate during a Republican presidential term:", rep_unemploy_avg)
 ```
 Under this hypothesis test, we can reject the null hypothesis at the 95% confidence level.
-$H_0$: the mean unemployment rates of the Democratic and Republican presidential terms do not differ significantly.
-$H_A$: the mean unemployment rate of the Democratic and Republican presidential term differ significantly.
+$H_0$: the two populations have the same distribution with the same median
+$H_A$: the two populations have distributions and medians that differ significantly.
 ```{r}
 wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='two.sided')
 ```
@@ -80,8 +105,8 @@ wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='two.sided')
 ##### alternative=greater
 In this case:
 
-* $H_0$:  The null hypothesis is that the mean of the population of differences between the paired data is zero.
-* $H_A$: The alternative hypothesis is that the mean of the Democratic population is greater than that of the Republicans.
+* $H_0$: the two populations have the same distribution with the same median
+* $H_A$: the two populations do not have the same distribution and the median of the Democratic population is greater than that of the Republicans.
 
 Under this hypotbesis test, we fail to reject the null hypothesis at the 95% confidence level.
 ```{r}
@@ -90,24 +115,34 @@ wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='greater')
 ##### alternative=less
 In this case:
 
-* $H_0$:  The null hypothesis is that the mean of the population of differences between the paired data is zero.
-* $H_A$: The alternative hypothesis is that the mean of the Democratic population is less than that of the Republicans.
+* $H_0$: the two populations have the same distribution with the same median
+* $H_A$: the two populations do not have the same distribution and the median of the Democratic population is less than that of the Republicans.
 
 Under this hypothesis test, we can reject the null hypothesis at the 95% confidence level.
 ```{r}
 wilcox.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative='less')
 ```
 
-### ANOVA
+### t-test
 
 * $H_0: \mu_{Democratic} = \mu_{Republican}$
 * $H_A: \mu_{Democratic} \neq \mu_{Republican}$
 
 ```{r}
-anova_result <- aov(UNRATE ~ Party, data = natl_unemploy_pres)
-summary(anova_result)
+levels(natl_unemploy_pres$Party)
+print(t.test(UNRATE ~ Party, data = natl_unemploy_pres))
 ```
 Because the p-value is less than 0.05, we can reject the null hypothesis at the 95% confidence level.
+
+```{r}
+print(t.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative = "greater"))
+```
+Due to the high p-value, We fail to reject the null hypothesis when the alternative hypothesis is set "true difference in means between group Democratic and group Republican is greater than 0."
+
+```{r}
+print(t.test(UNRATE ~ Party, data = natl_unemploy_pres, alternative = "less"))
+```
+Due to the low p-value, we reject the null hypothesis when the alternative hypothesis is set "true difference in means between group Democratic and group Republican is less than 0."
 
 # Part 2
 ## Preprocessing
@@ -242,7 +277,13 @@ ggplot(plot_data, aes(x = DATE, y = UNRATE, color = President)) +
        y = "Unemployment Rate (%)",
        color = "President") +
   theme_minimal() +
-  theme(legend.position = "right")
+  theme(legend.position = "right") +
+  theme(
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14)
+  )
 ```
 
 # Part 3
