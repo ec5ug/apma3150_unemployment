@@ -2829,7 +2829,13 @@ Shapiro-Wilks test is very low.</p>
   group_by(Party) %&gt;%
   summarise(Median = median(UNRATE, na.rm = TRUE))
 
-ggplot(natl_unemploy_pres, aes(x = UNRATE, color = Party)) +
+median_values</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["Party"],"name":[1],"type":["fct"],"align":["left"]},{"label":["Median"],"name":[2],"type":["dbl"],"align":["right"]}],"data":[{"1":"Democratic","2":"5.5"},{"1":"Republican","2":"5.7"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>ggplot(natl_unemploy_pres, aes(x = UNRATE, color = Party)) +
   geom_density(size = 1) +
   geom_vline(data = median_values, aes(xintercept = Median, color = Party), 
              linetype = &quot;dashed&quot;, size = 1.2) +

@@ -65,6 +65,8 @@ median_values <- natl_unemploy_pres %>%
   group_by(Party) %>%
   summarise(Median = median(UNRATE, na.rm = TRUE))
 
+median_values
+
 ggplot(natl_unemploy_pres, aes(x = UNRATE, color = Party)) +
   geom_density(size = 1) +
   geom_vline(data = median_values, aes(xintercept = Median, color = Party), 
