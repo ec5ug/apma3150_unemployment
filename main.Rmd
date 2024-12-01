@@ -19,6 +19,9 @@ editor_options:
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(caret)
 ```
 
 # Part 1
@@ -289,3 +292,64 @@ ggplot(plot_data, aes(x = DATE, y = UNRATE, color = President)) +
 ```
 
 # Part 3
+## Preprocessing
+```{r}
+# gdp <- read.csv('data/GDP.csv')
+m2 <- read.csv('data/RealM2MoneyStock.csv') # truncates the data
+cpi <- read.csv('data/ConsumerPriceIndexforAllUrbanConsumersAllItemsinU.S.CityAverage.csv')
+pce <- read.csv('data/pce.csv') # truncates the data
+# feature_data <- merge(natl_unemploy_pres, gdp, by = "DATE")
+feature_data <- merge(natl_unemploy_pres, cpi, by = "DATE")
+feature_data <- merge(feature_data, m2, by = "DATE")
+feature_data <- merge(feature_data, pce, by = "DATE")
+head(feature_data)
+```
+
+```{r}
+president_approval <- read.csv("data/president_approval.csv")
+president_approval$Start_Date <- as.Date(president_approval$Start_Date, format = "%m/%d/%Y")
+president_approval <- president_approval %>%
+  mutate(DATE = paste0(format(Start_Date, "%Y-%m"), "-01"))
+
+monthly_president_approval <- president_approval %>%
+  group_by(DATE) %>%
+  summarise(
+    Approving = mean(Approving, na.rm = TRUE),
+    Disapproving = mean(Disapproving, na.rm = TRUE),
+    Unsure = mean(Unsure.NoData, na.rm = TRUE)
+  )
+
+all_data <- merge(feature_data, monthly_president_approval, by = "DATE", all.x = TRUE)
+
+head(all_data)
+```
+## Creating decision tree
+```{r}
+set.seed(123)
+
+sample_size <- floor(0.7 * nrow(all_data))  # 70% for training
+train_index <- sample(seq_len(nrow(all_data)), size = sample_size)  # Random sample indices
+train_data <- all_data[train_index, ]
+test_data <- all_data[-train_index, ]
+
+decision_tree <- rpart(Approving ~ UNRATE + CPIAUCSL + M2REAL + PCE, 
+                       data = train_data, 
+                       method = "anova")
+
+pruned_tree <- prune(decision_tree, cp = 0.025)
+
+rpart.plot(
+  pruned_tree,
+  type = 3,
+  extra = 101,
+  main = "Pruned Decision Tree for Approving"
+)
+
+predictions <- predict(pruned_tree, newdata = test_data)
+
+rmse <- sqrt(mean((predictions - test_data$Approving)^2, na.rm = TRUE))
+mae <- mean(abs(predictions - test_data$Approving), na.rm = TRUE)
+
+cat("RMSE:", rmse, "\n")
+cat("MAE:", mae, "\n")
+```
