@@ -320,9 +320,15 @@ monthly_president_approval <- president_approval %>%
   )
 
 all_data <- merge(feature_data, monthly_president_approval, by = "DATE", all.x = TRUE)
-
+colnames(all_data) <- c("DATE", "Unemployment_Rate", "President", "Party", "CPI", "M2", "PCE", "Approving_Rate", "Disapproving_Rate", "Unsure_Rate")
 head(all_data)
 ```
+```{r}
+all_data$Approving_Rate <- as.numeric(as.character(all_data$Approving_Rate))
+cat("mean:", mean(all_data$Approving_Rate, na.rm=TRUE), "\n")
+cat("standard deviation:", sd(all_data$Approving_Rate, na.rm=TRUE))
+```
+
 ## Creating decision tree
 ```{r}
 set.seed(123)
@@ -332,11 +338,11 @@ train_index <- sample(seq_len(nrow(all_data)), size = sample_size)  # Random sam
 train_data <- all_data[train_index, ]
 test_data <- all_data[-train_index, ]
 
-decision_tree <- rpart(Approving ~ UNRATE + CPIAUCSL + M2REAL + PCE, 
+decision_tree <- rpart(Approving_Rate ~ Unemployment_Rate + CPI + M2 + PCE, 
                        data = train_data, 
                        method = "anova")
 
-pruned_tree <- prune(decision_tree, cp = 0.025)
+pruned_tree <- prune(decision_tree, cp = 0.002)
 
 rpart.plot(
   pruned_tree,
@@ -345,10 +351,20 @@ rpart.plot(
   main = "Pruned Decision Tree for Approving"
 )
 
+print("Testing Error")
 predictions <- predict(pruned_tree, newdata = test_data)
 
-rmse <- sqrt(mean((predictions - test_data$Approving)^2, na.rm = TRUE))
-mae <- mean(abs(predictions - test_data$Approving), na.rm = TRUE)
+rmse <- sqrt(mean((predictions - test_data$Approving_Rate)^2, na.rm = TRUE))
+mae <- mean(abs(predictions - test_data$Approving_Rate), na.rm = TRUE)
+
+cat("RMSE:", rmse, "\n")
+cat("MAE:", mae, "\n")
+
+print("Training Error")
+predictions <- predict(pruned_tree, newdata = train_data)
+
+rmse <- sqrt(mean((predictions - train_data$Approving_Rate)^2, na.rm = TRUE))
+mae <- mean(abs(predictions - train_data$Approving_Rate), na.rm = TRUE)
 
 cat("RMSE:", rmse, "\n")
 cat("MAE:", mae, "\n")
